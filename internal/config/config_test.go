@@ -36,12 +36,16 @@ func TestLoad(t *testing.T) {
 		fail bool
 	}{
 		{"missing", "", Default(), false},
-		{"partial", `{"terminal_font_size": 16}`, Config{Default().Theme, Default().Font, 16}, false},
+		{"partial", `{"terminal_font_size": 16}`, Config{Theme: Default().Theme, Font: Default().Font, FontSize: 16, Width: 720, Height: 420}, false},
 		{"malformed", `{"terminal_theme":`, Default(), true},
 		{"empty theme", `{"terminal_theme": ""}`, Default(), true},
 		{"empty font", `{"terminal_font": " "}`, Default(), true},
 		{"small font", `{"terminal_font_size": 0}`, Default(), true},
 		{"large font", `{"terminal_font_size": 100}`, Default(), true},
+		{"zero width", `{"terminal_width": 0}`, Default(), true},
+		{"negative height", `{"terminal_height": -1}`, Default(), true},
+		{"fractional width", `{"terminal_width": 720.5}`, Default(), true},
+		{"fractional height", `{"terminal_height": 420.5}`, Default(), true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.json")
@@ -60,7 +64,7 @@ func TestLoad(t *testing.T) {
 
 func TestSaveRoundTripAndPreserveOnFailure(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "tuck", "config.json")
-	want := Config{Theme: "Catppuccin Latte", Font: "Menlo", FontSize: 16}
+	want := Config{Theme: "Catppuccin Latte", Font: "Menlo", FontSize: 16, Width: 10000, Height: 8000}
 	if err := Save(path, want); err != nil {
 		t.Fatal(err)
 	}

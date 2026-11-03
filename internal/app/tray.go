@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
+	"liuyu.xin/tuck/internal/config"
 )
 
 const toggleShortcut = "Alt+Space"
@@ -73,12 +74,21 @@ func (a *app) show() {
 		}
 		a.term = term
 	}
+	anchor := a.tray.Bounds()
+	display := mygo.Screen.DisplayNearestPoint(mygo.Point{
+		X: anchor.X + anchor.Width/2,
+		Y: anchor.Y + anchor.Height/2,
+	})
+	if anchor.Width == 0 || anchor.Height == 0 {
+		display = mygo.Screen.PrimaryDisplay()
+	}
+	width, height := panelSize(a.config, display.WorkArea)
 	panel := mygo.NewFlyout(mygo.FlyoutOptions{
 		Tray:      a.tray,
 		Placement: mygo.PlacementBottom,
 		Gap:       4,
-		Width:     720,
-		Height:    420,
+		Width:     width,
+		Height:    height,
 		Focusable: true,
 		Shadow:    true,
 		Popover:   true,
@@ -90,6 +100,14 @@ func (a *app) show() {
 			a.panel = nil
 		}
 	})
+}
+
+func panelSize(c config.Config, area mygo.Rectangle) (int, int) {
+	// 为系统浮窗的箭头和边框在可用区域四周各预留 16 DIP。
+	const inset = 16
+	width := min(c.Width, float64(max(1, area.Width-2*inset)))
+	height := min(c.Height, float64(max(1, area.Height-2*inset)))
+	return int(width), int(height)
 }
 
 func (a *app) hide() {

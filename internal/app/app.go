@@ -46,7 +46,10 @@ func (a *app) run() error {
 	})
 	// 浮窗关闭后，会话和托盘仍需继续运行。
 	mygo.App.OnWindowAllClosed(func() {})
-	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { a.quitting = true })
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
+		a.flushPreferences()
+		a.quitting = true
+	})
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) { a.close() })
 	mygo.App.WhenReady(a.ready)
 	return mygo.App.Run()

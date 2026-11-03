@@ -2,6 +2,7 @@ package app
 
 import (
 	"log"
+	"math"
 	"slices"
 
 	"github.com/egoist/mygo"
@@ -12,13 +13,16 @@ import (
 
 const (
 	settingsWidth  = 520
-	settingsHeight = 280
+	settingsHeight = 360
 )
 
 type preferences struct {
 	draft          config.Config
 	tab            int
 	formRevision   int
+	numberInputs   [3]ui.Handle
+	editingNumber  bool
+	pendingSave    bool
 	themes         []string
 	fonts          []string
 	openAtLogin    bool
@@ -79,6 +83,8 @@ func (a *app) showSettings() {
 		Content:           ui.View(a.prefs.view),
 	})
 	a.settingsWindow = w
+	w.OnBlur(a.flushPreferences)
+	w.OnClose(func(*mygo.CloseEvent) { a.flushPreferences() })
 	w.OnClosed(func() {
 		if a.settingsWindow == w {
 			a.settingsWindow = nil
@@ -120,7 +126,15 @@ func (p *preferences) view(c *ui.Context) {
 				})
 				ui.Field(c, "终端字号", func() {
 					ui.NumberInput(c.Key("font-size"), &p.draft.FontSize, config.MinFontSize, config.MaxFontSize, 1).
-						Width(100).OnChange(p.save)
+						Width(100).Bind(&p.numberInputs[0]).OnChange(p.save)
+				})
+				ui.Field(c, "终端宽度（DIP）", func() {
+					ui.NumberInput(c.Key("terminal-width"), &p.draft.Width, 1, math.MaxFloat64, 10).
+						Width(100).Bind(&p.numberInputs[1]).OnChange(p.save)
+				})
+				ui.Field(c, "终端高度（DIP）", func() {
+					ui.NumberInput(c.Key("terminal-height"), &p.draft.Height, 1, math.MaxFloat64, 10).
+						Width(100).Bind(&p.numberInputs[2]).OnChange(p.save)
 				})
 			} else {
 				ui.Field(c, "开机自启动", func() {
@@ -128,6 +142,14 @@ func (p *preferences) view(c *ui.Context) {
 				})
 			}
 		}).AlignSelf(ui.Center).Disabled(p.loading || p.busy)
+		p.editingNumber = false
+		for _, input := range p.numberInputs {
+			p.editingNumber = p.editingNumber || input.FocusWithin(c)
+		}
+		if p.pendingSave && !p.editingNumber {
+			p.pendingSave = false
+			p.save()
+		}
 		ui.Spacer(c)
 		switch {
 		case p.errorText != "":
@@ -140,10 +162,22 @@ func (p *preferences) view(c *ui.Context) {
 	})
 }
 
+func (a *app) flushPreferences() {
+	a.prefs.editingNumber = false
+	if a.prefs.pendingSave {
+		a.savePreferences()
+	}
+}
+
 func (a *app) savePreferences() {
 	if a.prefs.busy || a.quitting {
 		return
 	}
+	if a.prefs.editingNumber {
+		a.prefs.pendingSave = true
+		return
+	}
+	a.prefs.pendingSave = false
 	next, path := a.prefs.draft, a.configPath
 	a.prefs.busy, a.prefs.errorText = true, ""
 	a.configWrites.Add(1)

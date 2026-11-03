@@ -19,6 +19,8 @@ type Config struct {
 	Theme    string  `json:"terminal_theme"`
 	Font     string  `json:"terminal_font"`
 	FontSize float64 `json:"terminal_font_size"`
+	Width    float64 `json:"terminal_width"`
+	Height   float64 `json:"terminal_height"`
 }
 
 func Default() Config {
@@ -26,6 +28,8 @@ func Default() Config {
 		Theme:    "Ghostty Default Style Dark",
 		Font:     "JetBrainsMono Nerd Font",
 		FontSize: 12,
+		Width:    720,
+		Height:   420,
 	}
 }
 
@@ -68,6 +72,11 @@ func (c Config) Validate() error {
 	}
 	if math.IsNaN(c.FontSize) || math.IsInf(c.FontSize, 0) || c.FontSize < MinFontSize || c.FontSize > MaxFontSize {
 		return fmt.Errorf("终端字号必须在 %d 到 %d 之间", MinFontSize, MaxFontSize)
+	}
+	for _, size := range []float64{c.Width, c.Height} {
+		if math.IsNaN(size) || math.IsInf(size, 0) || size < 1 || math.Trunc(size) != size {
+			return errors.New("终端宽高必须为正整数")
+		}
 	}
 	return nil
 }

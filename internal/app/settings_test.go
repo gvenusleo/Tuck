@@ -1,9 +1,11 @@
 package app
 
 import (
+	"math"
 	"os"
 	"testing"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"liuyu.xin/tuck/internal/config"
 )
@@ -18,20 +20,26 @@ func TestPreferences(t *testing.T) {
 	p.save = func() { changes++ }
 	p.setOpenAtLogin = func() { loginChanges++ }
 	tt := ui.NewTester(p.view, settingsWidth, settingsHeight)
-	for _, field := range []struct{ label, value string }{{"终端主题", "Catppuccin Latte"}, {"终端字体", "Menlo"}, {"终端字号", "16"}} {
+	for _, field := range []struct{ label, value string }{
+		{"终端主题", "Catppuccin Latte"},
+		{"终端字体", "Menlo"},
+		{"终端字号", "16"},
+		{"终端宽度（DIP）", "10000"},
+		{"终端高度（DIP）", "8000"},
+	} {
 		if err := tt.Click(field.label); err != nil {
 			t.Fatal(err)
 		}
 		tt.Key(ui.Cmd, ui.KeyA)
 		tt.Type(field.value)
-		if field.label != "终端字号" {
+		if field.label == "终端主题" || field.label == "终端字体" {
 			tt.Key(0, ui.KeyDown)
 			tt.Key(0, ui.KeyEnter)
 		}
 	}
-	want := config.Config{Theme: "Catppuccin Latte", Font: "Menlo", FontSize: 16}
-	if p.draft != want || changes != 3 {
-		t.Fatalf("preferences = %+v, changes = %d; want %+v, 3", p.draft, changes, want)
+	want := config.Config{Theme: "Catppuccin Latte", Font: "Menlo", FontSize: 16, Width: 10000, Height: 8000}
+	if p.draft != want || changes != 5 {
+		t.Fatalf("preferences = %+v, changes = %d; want %+v, 5", p.draft, changes, want)
 	}
 	if err := tt.Click("通用"); err != nil {
 		t.Fatal(err)
@@ -58,6 +66,8 @@ func TestPreferencesSaveFailure(t *testing.T) {
 		{"终端主题", "Catppuccin Latte", config.Default().Theme},
 		{"终端字体", "Menlo", config.Default().Font},
 		{"终端字号", "16", "12"},
+		{"终端宽度（DIP）", "1000", "720"},
+		{"终端高度（DIP）", "800", "420"},
 	} {
 		t.Run(field.label, func(t *testing.T) {
 			a := &app{config: config.Default()}
@@ -73,7 +83,7 @@ func TestPreferencesSaveFailure(t *testing.T) {
 			}
 			tt.Key(ui.Cmd, ui.KeyA)
 			tt.Type(field.value)
-			if field.label != "终端字号" {
+			if field.label == "终端主题" || field.label == "终端字体" {
 				tt.Key(0, ui.KeyDown)
 				tt.Key(0, ui.KeyEnter)
 			}
@@ -99,13 +109,37 @@ func TestPreferencesSaveFailure(t *testing.T) {
 	}
 }
 
+func TestPanelSize(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		width, height float64
+		wantW, wantH  int
+	}{
+		{"default", 720, 420, 720, 420},
+		{"wide", 10000, 420, 1408, 420},
+		{"tall", 720, 8000, 720, 843},
+		{"both", math.MaxFloat64, math.MaxFloat64, 1408, 843},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := config.Default()
+			c.Width, c.Height = tc.width, tc.height
+			w, h := panelSize(c, mygo.Rectangle{X: -1440, Y: 25, Width: 1440, Height: 875})
+			if w != tc.wantW || h != tc.wantH {
+				t.Fatalf("panel size = %d × %d; want %d × %d", w, h, tc.wantW, tc.wantH)
+			}
+		})
+	}
+}
+
 func TestLoadConfigFallback(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	path, err := config.Path()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := config.Save(path, config.Config{Theme: "Tuck missing theme", Font: "Menlo", FontSize: 16}); err != nil {
+	c := config.Default()
+	c.Theme, c.Font, c.FontSize = "Tuck missing theme", "Menlo", 16
+	if err := config.Save(path, c); err != nil {
 		t.Fatal(err)
 	}
 	a := &app{}
