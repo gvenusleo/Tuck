@@ -1,0 +1,38 @@
+[tools]
+go = "1.27.3"
+
+[env]
+CGO_ENABLED = "0"
+
+[tasks.dev]
+description = "启动桌面应用（热重载）"
+run = "go tool mygo dev"
+
+[tasks.build]
+description = "构建应用与安装包"
+run = "go tool mygo build"
+
+[tasks.install]
+description = "安装 macOS App"
+depends = ["build"]
+run = "rm -rf /Applications/Tuck.app && ditto build/darwin-arm64/Tuck.app /Applications/Tuck.app"
+
+[tasks.fmt]
+description = "gofmt 格式化"
+run = "gofmt -w ."
+
+[tasks.fmt-check]
+description = "检查 Go 格式，不改写文件"
+run = "test -z \"$(gofmt -l .)\""
+
+[tasks.vet]
+description = "go vet 与 MyGo 原生 UI 静态检查"
+run = "go vet ./... && go tool mygo vet ."
+
+[tasks.icon]
+description = "重新生成应用图标与菜单栏图标"
+run = "go run ./cmd/icon"
+
+[tasks.ci]
+description = "检查格式、静态分析并打包"
+depends = ["fmt-check", "vet", "build"]
