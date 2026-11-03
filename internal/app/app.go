@@ -3,16 +3,24 @@ package app
 import (
 	"errors"
 	"log"
+	"sync"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/terminal"
+	"liuyu.xin/tuck/internal/config"
 )
 
 type app struct {
-	tray     *mygo.Tray
-	panel    *mygo.Window
-	term     *terminal.Terminal
-	quitting bool
+	tray           *mygo.Tray
+	panel          *mygo.Window
+	settingsWindow *mygo.Window
+	term           *terminal.Terminal
+	theme          *terminal.Theme
+	config         config.Config
+	configPath     string
+	configWrites   sync.WaitGroup
+	prefs          preferences
+	quitting       bool
 }
 
 func (a *app) run() error {
@@ -21,8 +29,21 @@ func (a *app) run() error {
 	if !mygo.App.RequestSingleInstanceLock() {
 		return nil
 	}
+	if err := a.loadConfig(); err != nil {
+		return err
+	}
 	mygo.App.OnSecondInstance(func([]string, string) { mygo.App.WhenReady(a.show) })
-	mygo.App.OnActivate(func(bool) { mygo.App.WhenReady(a.show) })
+	mygo.App.OnActivate(func(visible bool) {
+		if !visible {
+			mygo.App.WhenReady(a.show)
+		}
+	})
+	mygo.App.OnDidBecomeActive(func() {
+		if a.settingsWindow != nil && !a.prefs.busy {
+			a.prefs.openAtLogin = mygo.App.OpenAtLogin()
+			a.invalidateSettings()
+		}
+	})
 	// 浮窗关闭后，会话和托盘仍需继续运行。
 	mygo.App.OnWindowAllClosed(func() {})
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { a.quitting = true })
@@ -33,6 +54,7 @@ func (a *app) run() error {
 
 func (a *app) close() {
 	a.quitting = true
+	a.configWrites.Wait()
 	mygo.GlobalShortcut.Unregister(toggleShortcut)
 	a.hide()
 	a.closeTerminal()

@@ -31,6 +31,7 @@ func (a *app) ready() {
 	}
 	menu := mygo.NewMenu([]*mygo.MenuItem{
 		{Label: "打开 Tuck", Click: func(*mygo.MenuItem, *mygo.Window) { a.show() }},
+		{Label: "设置", Click: func(*mygo.MenuItem, *mygo.Window) { a.showSettings() }},
 		mygo.Separator(),
 		{Label: "退出 Tuck", Role: mygo.RoleQuit},
 	})
@@ -61,14 +62,9 @@ func (a *app) show() {
 		return
 	}
 	if a.term == nil {
-		theme, err := terminal.GhosttyTheme("Ghostty Default Style Dark")
-		if err != nil {
-			a.fail("无法加载终端主题", err)
-			return
-		}
 		term, err := terminal.New(terminal.Options{
-			Font:   terminal.Font{Family: "JetBrainsMono Nerd Font", Size: 12},
-			Theme:  theme,
+			Font:   terminal.Font{Family: a.config.Font, Size: float32(a.config.FontSize)},
+			Theme:  a.theme,
 			OnExit: a.terminalExited,
 		})
 		if err != nil {
