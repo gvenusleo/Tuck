@@ -32,7 +32,7 @@ type segment struct {
 	args [6]float64
 }
 
-// start 是一条轮廓的起点。
+// builder 保存轮廓的起点和曲线段。
 type builder struct {
 	start pt
 	seg   path

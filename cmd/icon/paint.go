@@ -25,7 +25,7 @@ func newCanvas() *canvas {
 }
 
 // trace 把轮廓加进光栅器。逆时针的轮廓与顺时针相抵，可用于挖孔。
-func (c *canvas) trace(b builder, hole bool) {
+func (c *canvas) trace(b builder) {
 	c.z.MoveTo(float32(b.start.x), float32(b.start.y))
 	for _, s := range b.seg {
 		a := s.args
@@ -39,13 +39,12 @@ func (c *canvas) trace(b builder, hole bool) {
 		}
 	}
 	c.z.ClosePath()
-	_ = hole
 }
 
 // fill 用 src 填充轮廓。
 func (c *canvas) fill(src image.Image, b builder) {
 	c.z.Reset(size, size)
-	c.trace(b, false)
+	c.trace(b)
 	c.z.Draw(c.img, c.img.Bounds(), src, image.Point{})
 }
 
@@ -53,7 +52,7 @@ func (c *canvas) fill(src image.Image, b builder) {
 func (c *canvas) mask(b builder) *image.Alpha {
 	m := image.NewAlpha(c.img.Bounds())
 	c.z.Reset(size, size)
-	c.trace(b, false)
+	c.trace(b)
 	c.z.Draw(m, m.Bounds(), image.NewUniform(color.Alpha{255}), image.Point{})
 	return m
 }
