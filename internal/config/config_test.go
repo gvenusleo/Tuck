@@ -36,7 +36,8 @@ func TestLoad(t *testing.T) {
 		fail bool
 	}{
 		{"missing", "", Default(), false},
-		{"partial", `{"terminal_font_size": 16}`, Config{Theme: Default().Theme, Font: Default().Font, FontSize: 16, Width: 720, Height: 420}, false},
+		{"partial", `{"terminal_font_size": 16}`, Config{Theme: Default().Theme, Font: Default().Font, FontSize: 16, Width: 720, Height: 420, TabPosition: TabsTop}, false},
+		{"invalid tab position", `{"terminal_tab_position": "left"}`, Default(), true},
 		{"malformed", `{"terminal_theme":`, Default(), true},
 		{"empty theme", `{"terminal_theme": ""}`, Default(), true},
 		{"empty font", `{"terminal_font": " "}`, Default(), true},
@@ -64,7 +65,7 @@ func TestLoad(t *testing.T) {
 
 func TestSaveRoundTripAndPreserveOnFailure(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "tuck", "config.json")
-	want := Config{Theme: "Catppuccin Latte", Font: "Menlo", FontSize: 16, Width: 10000, Height: 8000}
+	want := Config{Theme: "Catppuccin Latte", Font: "Menlo", FontSize: 16, Width: 10000, Height: 8000, TabPosition: TabsBottom}
 	if err := Save(path, want); err != nil {
 		t.Fatal(err)
 	}
