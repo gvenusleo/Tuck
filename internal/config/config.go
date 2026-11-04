@@ -13,23 +13,27 @@ import (
 const (
 	MinFontSize = 8
 	MaxFontSize = 48
+	TabsTop     = "top"
+	TabsBottom  = "bottom"
 )
 
 type Config struct {
-	Theme    string  `json:"terminal_theme"`
-	Font     string  `json:"terminal_font"`
-	FontSize float64 `json:"terminal_font_size"`
-	Width    float64 `json:"terminal_width"`
-	Height   float64 `json:"terminal_height"`
+	Theme       string  `json:"terminal_theme"`
+	Font        string  `json:"terminal_font"`
+	FontSize    float64 `json:"terminal_font_size"`
+	Width       float64 `json:"terminal_width"`
+	Height      float64 `json:"terminal_height"`
+	TabPosition string  `json:"terminal_tab_position"`
 }
 
 func Default() Config {
 	return Config{
-		Theme:    "Ghostty Default Style Dark",
-		Font:     "JetBrainsMono Nerd Font",
-		FontSize: 12,
-		Width:    720,
-		Height:   420,
+		Theme:       "Ghostty Default Style Dark",
+		Font:        "JetBrainsMono Nerd Font",
+		FontSize:    12,
+		Width:       720,
+		Height:      420,
+		TabPosition: TabsTop,
 	}
 }
 
@@ -72,6 +76,9 @@ func (c Config) Validate() error {
 	}
 	if math.IsNaN(c.FontSize) || math.IsInf(c.FontSize, 0) || c.FontSize < MinFontSize || c.FontSize > MaxFontSize {
 		return fmt.Errorf("终端字号必须在 %d 到 %d 之间", MinFontSize, MaxFontSize)
+	}
+	if c.TabPosition != TabsTop && c.TabPosition != TabsBottom {
+		return errors.New("标签栏位置必须为 top 或 bottom")
 	}
 	for _, size := range []float64{c.Width, c.Height} {
 		if math.IsNaN(size) || math.IsInf(size, 0) || size < 1 || math.Trunc(size) != size {

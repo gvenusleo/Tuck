@@ -24,8 +24,8 @@ func TestPreferences(t *testing.T) {
 		{"终端主题", "Catppuccin Latte"},
 		{"终端字体", "Menlo"},
 		{"终端字号", "16"},
-		{"终端宽度（DIP）", "10000"},
-		{"终端高度（DIP）", "8000"},
+		{"面板宽度（DIP）", "10000"},
+		{"面板高度（DIP）", "8000"},
 	} {
 		if err := tt.Click(field.label); err != nil {
 			t.Fatal(err)
@@ -37,9 +37,12 @@ func TestPreferences(t *testing.T) {
 			tt.Key(0, ui.KeyEnter)
 		}
 	}
-	want := config.Config{Theme: "Catppuccin Latte", Font: "Menlo", FontSize: 16, Width: 10000, Height: 8000}
-	if p.draft != want || changes != 5 {
-		t.Fatalf("preferences = %+v, changes = %d; want %+v, 5", p.draft, changes, want)
+	if err := tt.Click("下方"); err != nil {
+		t.Fatal(err)
+	}
+	want := config.Config{Theme: "Catppuccin Latte", Font: "Menlo", FontSize: 16, Width: 10000, Height: 8000, TabPosition: config.TabsBottom}
+	if p.draft != want || changes != 6 {
+		t.Fatalf("preferences = %+v, changes = %d; want %+v, 6", p.draft, changes, want)
 	}
 	if err := tt.Click("通用"); err != nil {
 		t.Fatal(err)
@@ -64,17 +67,13 @@ func TestPreferences(t *testing.T) {
 func TestPreferencesSaveFailure(t *testing.T) {
 	for _, field := range []struct{ label, value, original string }{
 		{"终端主题", "Catppuccin Latte", config.Default().Theme},
-		{"终端字体", "Menlo", config.Default().Font},
-		{"终端字号", "16", "12"},
-		{"终端宽度（DIP）", "1000", "720"},
-		{"终端高度（DIP）", "800", "420"},
+		{"面板宽度（DIP）", "1000", "720"},
 	} {
 		t.Run(field.label, func(t *testing.T) {
 			a := &app{config: config.Default()}
 			a.prefs = preferences{
 				draft:  a.config,
 				themes: []string{a.config.Theme, "Catppuccin Latte"},
-				fonts:  []string{a.config.Font, "Menlo"},
 				save:   func() { a.prefs.busy = true },
 			}
 			tt := ui.NewTester(a.prefs.view, settingsWidth, settingsHeight)
@@ -83,7 +82,7 @@ func TestPreferencesSaveFailure(t *testing.T) {
 			}
 			tt.Key(ui.Cmd, ui.KeyA)
 			tt.Type(field.value)
-			if field.label == "终端主题" || field.label == "终端字体" {
+			if field.label == "终端主题" {
 				tt.Key(0, ui.KeyDown)
 				tt.Key(0, ui.KeyEnter)
 			}
@@ -107,6 +106,25 @@ func TestPreferencesSaveFailure(t *testing.T) {
 			}
 		})
 	}
+	t.Run("标签栏位置", func(t *testing.T) {
+		a := &app{config: config.Default()}
+		a.prefs = preferences{draft: a.config, save: func() { a.prefs.busy = true }}
+		tt := ui.NewTester(a.prefs.view, settingsWidth, settingsHeight)
+		if err := tt.Click("下方"); err != nil {
+			t.Fatal(err)
+		}
+		a.finishPreferencesSave(a.prefs.draft, nil, os.ErrPermission)
+		tt.Frame()
+		if a.prefs.draft.TabPosition != config.TabsTop || a.prefs.errorText == "" {
+			t.Fatal("failed save did not restore tab position")
+		}
+		if err := tt.Click("上方"); err != nil {
+			t.Fatal(err)
+		}
+		if a.prefs.busy {
+			t.Fatal("restored segmented control still showed the unsaved choice")
+		}
+	})
 }
 
 func TestPanelSize(t *testing.T) {

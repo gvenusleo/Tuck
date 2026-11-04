@@ -6,7 +6,6 @@ import (
 	"runtime"
 
 	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 	"liuyu.xin/tuck/internal/config"
 )
@@ -17,6 +16,19 @@ const toggleShortcut = "Alt+Space"
 var trayIcon []byte
 
 func (a *app) ready() {
+	if runtime.GOOS == "darwin" {
+		// 原生菜单先于视图处理 ⌘W；按收到命令的窗口区分标签与设置。
+		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
+			{Role: mygo.RoleAppMenu},
+			{Label: "文件", Submenu: []*mygo.MenuItem{{
+				Label: "关闭", Accelerator: "CmdOrCtrl+W",
+				Click: func(_ *mygo.MenuItem, w *mygo.Window) { a.closeFromMenu(w) },
+			}}},
+			{Role: mygo.RoleEditMenu},
+			{Role: mygo.RoleViewMenu},
+			{Role: mygo.RoleWindowMenu},
+		}))
+	}
 	var err error
 	a.tray, err = mygo.NewTray(mygo.TrayOptions{
 		Icon:           trayIcon,
@@ -50,6 +62,18 @@ func (a *app) ready() {
 	})
 }
 
+func (a *app) closeFromMenu(w *mygo.Window) {
+	// NSPopover 不登记为 MyGo 的 FocusedWindow，原生菜单可能传入 nil。
+	if w == nil {
+		w = a.panel
+	}
+	if w != nil && w == a.panel {
+		a.closeSession(a.activeID)
+	} else if w != nil {
+		w.Close()
+	}
+}
+
 func (a *app) toggle() {
 	if a.panel != nil {
 		a.hide()
@@ -62,18 +86,14 @@ func (a *app) show() {
 	if a.quitting || a.tray == nil || a.panel != nil {
 		return
 	}
-	if a.term == nil {
-		term, err := terminal.New(terminal.Options{
-			Font:   terminal.Font{Family: a.config.Font, Size: float32(a.config.FontSize)},
-			Theme:  a.theme,
-			OnExit: a.terminalExited,
-		})
-		if err != nil {
-			a.fail("无法启动终端", err)
+	if len(a.sessions) == 0 {
+		a.newSession()
+		if len(a.sessions) == 0 {
 			return
 		}
-		a.term = term
 	}
+	a.focusID = a.activeID
+	a.revealTab = true
 	anchor := a.tray.Bounds()
 	display := mygo.Screen.DisplayNearestPoint(mygo.Point{
 		X: anchor.X + anchor.Width/2,

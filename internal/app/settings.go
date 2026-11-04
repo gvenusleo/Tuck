@@ -2,7 +2,6 @@ package app
 
 import (
 	"log"
-	"math"
 	"slices"
 
 	"github.com/egoist/mygo"
@@ -13,12 +12,13 @@ import (
 
 const (
 	settingsWidth  = 520
-	settingsHeight = 360
+	settingsHeight = 400
 )
 
 type preferences struct {
 	draft          config.Config
 	tab            int
+	tabPosition    int
 	formRevision   int
 	numberInputs   [3]ui.Handle
 	editingNumber  bool
@@ -55,6 +55,7 @@ func (a *app) loadConfig() error {
 		}
 	}
 	a.prefs.draft = a.config
+	a.prefs.tabPosition = tabPositionIndex(a.config.TabPosition)
 	a.prefs.save = a.savePreferences
 	a.prefs.setOpenAtLogin = a.setOpenAtLogin
 	return nil
@@ -80,7 +81,7 @@ func (a *app) showSettings() {
 		DisableMinimize:   true,
 		DisableMaximize:   true,
 		DisableFullScreen: true,
-		Content:           ui.View(a.prefs.view),
+		Content:           ui.View(a.settingsView),
 	})
 	a.settingsWindow = w
 	w.OnBlur(a.flushPreferences)
@@ -111,55 +112,20 @@ func (a *app) showSettings() {
 	}
 }
 
-func (p *preferences) view(c *ui.Context) {
-	ui.Column(c).Fill().Padding(24).Gap(24).Children(func() {
-		ui.Row(c).FillWidth().Center().Children(func() {
-			ui.Segmented(c.Key("settings-tabs"), &p.tab, "外观", "通用").Label("设置分类")
-		})
-		ui.Form(c.Key([2]int{p.tab, p.formRevision}), func() {
-			if p.tab == 0 {
-				ui.Field(c, "终端主题", func() {
-					ui.Combobox(c.Key("theme"), &p.draft.Theme, p.themes).Width(320).OnChange(p.save)
-				})
-				ui.Field(c, "终端字体", func() {
-					ui.Combobox(c.Key("font"), &p.draft.Font, p.fonts).Width(320).OnChange(p.save)
-				})
-				ui.Field(c, "终端字号", func() {
-					ui.NumberInput(c.Key("font-size"), &p.draft.FontSize, config.MinFontSize, config.MaxFontSize, 1).
-						Width(100).Bind(&p.numberInputs[0]).OnChange(p.save)
-				})
-				ui.Field(c, "终端宽度（DIP）", func() {
-					ui.NumberInput(c.Key("terminal-width"), &p.draft.Width, 1, math.MaxFloat64, 10).
-						Width(100).Bind(&p.numberInputs[1]).OnChange(p.save)
-				})
-				ui.Field(c, "终端高度（DIP）", func() {
-					ui.NumberInput(c.Key("terminal-height"), &p.draft.Height, 1, math.MaxFloat64, 10).
-						Width(100).Bind(&p.numberInputs[2]).OnChange(p.save)
-				})
-			} else {
-				ui.Field(c, "开机自启动", func() {
-					ui.Switch(c.Key("open-at-login"), &p.openAtLogin).OnChange(p.setOpenAtLogin)
-				})
-			}
-		}).AlignSelf(ui.Center).Disabled(p.loading || p.busy)
-		p.editingNumber = false
-		for _, input := range p.numberInputs {
-			p.editingNumber = p.editingNumber || input.FocusWithin(c)
-		}
-		if p.pendingSave && !p.editingNumber {
-			p.pendingSave = false
-			p.save()
-		}
-		ui.Spacer(c)
-		switch {
-		case p.errorText != "":
-			ui.Text(c, p.errorText).TextColor(c.Theme().Danger).Wrap()
-		case p.loading:
-			ui.Text(c, "正在加载设置…").TextColor(c.Theme().TextMuted)
-		case p.busy:
-			ui.Text(c, "正在保存…").TextColor(c.Theme().TextMuted)
-		}
-	})
+// tabPositionIndex 与 tabPositionFor 在配置与分段控件之间转换：配置保存
+// 可读的 top/bottom，控件使用 0/1 下标。
+func tabPositionIndex(position string) int {
+	if position == config.TabsBottom {
+		return 1
+	}
+	return 0
+}
+
+func tabPositionFor(index int) string {
+	if index == 1 {
+		return config.TabsBottom
+	}
+	return config.TabsTop
 }
 
 func (a *app) flushPreferences() {
@@ -170,7 +136,12 @@ func (a *app) flushPreferences() {
 }
 
 func (a *app) savePreferences() {
-	if a.prefs.busy || a.quitting {
+	if a.quitting {
+		return
+	}
+	if a.prefs.busy {
+		// 保存进行中：登记这次改动，等当前保存结束后再写一次。
+		a.prefs.pendingSave = true
 		return
 	}
 	if a.prefs.editingNumber {
@@ -195,6 +166,8 @@ func (a *app) finishPreferencesSave(next config.Config, theme *terminal.Theme, e
 	a.prefs.busy = false
 	if err != nil {
 		a.prefs.draft = a.config
+		a.prefs.tabPosition = tabPositionIndex(a.config.TabPosition)
+		a.prefs.pendingSave = false
 		// 重建表单，清除原生输入框持有的未保存文字。
 		a.prefs.formRevision++
 		a.prefs.errorText = "设置未保存，请检查主题或配置文件权限。"
@@ -202,20 +175,34 @@ func (a *app) finishPreferencesSave(next config.Config, theme *terminal.Theme, e
 	} else {
 		previous := a.config
 		a.config, a.theme = next, theme
-		if a.term != nil {
+		for _, s := range a.sessions {
 			if next.Font != previous.Font || next.FontSize != previous.FontSize {
-				a.term.SetFont(terminal.Font{Family: next.Font, Size: float32(next.FontSize)})
+				s.term.SetFont(terminal.Font{Family: next.Font, Size: float32(next.FontSize)})
 			}
 			if next.Theme != previous.Theme {
-				a.term.SetTheme(theme, nil)
+				s.term.SetTheme(theme, nil)
 			}
+		}
+		if next.TabPosition != previous.TabPosition {
+			a.revealTab = true
+			a.invalidatePanel()
 		}
 	}
 	a.invalidateSettings()
+	if a.prefs.pendingSave {
+		a.prefs.pendingSave = false
+		a.savePreferences()
+	}
 }
 
 func (a *app) setOpenAtLogin() {
-	if a.prefs.busy || a.quitting {
+	if a.quitting {
+		return
+	}
+	if a.prefs.busy {
+		// 保存进行中：开关恢复为系统实际状态，避免显示未生效的选择。
+		a.prefs.openAtLogin = mygo.App.OpenAtLogin()
+		a.invalidateSettings()
 		return
 	}
 	enabled := a.prefs.openAtLogin
