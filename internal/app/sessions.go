@@ -61,9 +61,10 @@ func (a *app) newSession() {
 	s := &session{id: a.nextSessionID}
 	term, err := terminal.New(terminal.Options{
 		// 纵向不留白，文字紧贴标签栏；横向与插件默认值一致，和标签文字左对齐。
-		Padding: terminal.Padding{X: terminalPaddingX, Y: terminalPaddingY},
-		Font:    terminal.Font{Family: a.config.Font, Size: float32(a.config.FontSize)},
-		Theme:   a.theme,
+		Padding:          terminal.Padding{X: terminalPaddingX, Y: terminalPaddingY},
+		Font:             terminal.Font{Family: a.config.Font, Size: float32(a.config.FontSize)},
+		Theme:            a.theme,
+		ShellIntegration: true,
 		OnTitle: func(title string) {
 			go mygo.RunOnMain(func() { a.sessionTitleChanged(s.id, title) })
 		},
