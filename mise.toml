@@ -5,8 +5,8 @@ go = "1.27.3"
 CGO_ENABLED = "0"
 
 [tasks.dev]
-description = "启动桌面应用（热重载）"
-run = "go tool mygo dev"
+description = "启动桌面应用（热重载，不抢焦点）"
+run = "go tool mygo dev -background"
 
 [tasks.build]
 description = "构建应用与安装包"
