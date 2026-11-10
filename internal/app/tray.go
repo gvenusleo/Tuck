@@ -16,6 +16,9 @@ const toggleShortcut = "Alt+Space"
 var trayIcon []byte
 
 func (a *app) ready() {
+	// 面板收起后禁用 App Nap，仍允许系统正常休眠。
+	release := mygo.Power.KeepRunning("保持 Tuck 后台终端运行")
+	mygo.App.OnWillQuit(func(*mygo.QuitEvent) { release() })
 	if runtime.GOOS == "darwin" {
 		// 原生菜单先于视图处理 ⌘W；按收到命令的窗口区分标签与设置。
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
