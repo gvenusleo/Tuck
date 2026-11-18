@@ -123,9 +123,9 @@ macOS 右键菜单仅在弹出期间设置到托盘，关闭后解除，避免�
 
 ## 开发与构建
 
-项目使用 [mise](https://mise.jdx.dev/) 管理工具版本和任务，固定 Go `1.27.3`。MyGo CLI 以 Go tool 形式记录在 `go.mod` 中，通过 `go tool mygo` 调用，不依赖全局安装的 CLI。`mygo.json` 的 `main` 字段设为 `./cmd/tuck`，开发和构建命令仍在项目根目录运行。
+项目使用 [mise](https://mise.jdx.dev/) 管理工具版本和任务，固定 Go `1.27.4`。MyGo CLI 以 Go tool 形式记录在 `go.mod` 中，通过 `go tool mygo` 调用，不依赖全局安装的 CLI。`mygo.json` 的 `main` 字段设为 `./cmd/tuck`，开发和构建命令仍在项目根目录运行。
 
-MyGo 固定为 `v0.7.5-0.20261103074229-64d9abeb2951`，包含 macOS popover 修复。Go 会自动下载依赖，开发无需准备相邻的 MyGo 源码目录。
+MyGo 固定为 `v0.10.0`，包含 macOS popover 修复。Go 会自动下载依赖，开发无需准备相邻的 MyGo 源码目录。
 
 在项目根目录执行：
 
