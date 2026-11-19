@@ -4,5 +4,8 @@
   "version": "0.1.0",
   "copyright": "© 2026 liuyuxin",
   "main": "./cmd/tuck",
-  "out": "build"
+  "out": "build",
+  "macos": {
+    "signingIdentity": "FA69ED0C1AE020718C546994B3AB48450341180F"
+  }
 }
